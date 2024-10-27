@@ -9,14 +9,14 @@ dotenv.config(); // Load environment variables
 const app = express();
 const port = 3000;
 
+// Configure Redis client to connect to the local Redis instance
 const redisClient = createClient({
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-  },
+  url: `redis://${process.env.REDIS_HOST || "127.0.0.1"}:${
+    process.env.REDIS_PORT || "6379"
+  }`,
 });
 
+// Cocktail API URLs
 const cocktailSearchUrl =
   "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=";
 const singleCocktailUrl =
@@ -37,7 +37,6 @@ app.use(cors()); // Enable CORS for all routes
 // Middleware to parse JSON
 app.use(express.json());
 
-// Endpoint to get cocktail data (by search term)
 app.get("/api/cocktails", async (req, res) => {
   const searchTerm = req.query.search || " ";
 
@@ -46,24 +45,32 @@ app.get("/api/cocktails", async (req, res) => {
     const cachedData = await redisClient.get(searchTerm);
     if (cachedData) {
       console.log("Serving from cache");
-      return res.json(JSON.parse(cachedData));
+      return res.json(JSON.parse(cachedData)); // This will need to be updated to match new format.
     }
 
     // If not cached, fetch from the Cocktail DB API
     console.log(`Fetching cocktail data for: ${searchTerm}`);
     const startTime = Date.now(); // Start time measurement
     const response = await axios.get(`${cocktailSearchUrl}${searchTerm}`);
-    const drinks = response.data.drinks;
+
+    // Ensure the response structure is correct
+    const drinks = response.data.drinks ? response.data.drinks : []; // If no drinks found, default to empty array
+
+    // Wrap drinks in an object for the response
+    const responseData = { drinks };
 
     // Cache the response in Redis for future requests
-    await redisClient.set(searchTerm, JSON.stringify(drinks), { EX: 3600 }); // Cache for 1 hour
+    await redisClient.set(searchTerm, JSON.stringify(responseData), {
+      EX: 3600,
+    }); // Cache for 1 hour
     const endTime = Date.now(); // End time measurement
     const timeTaken = endTime - startTime; // Calculate time taken
     console.log(
       `Data fetched and cached for: ${searchTerm} in ${timeTaken} ms`
     );
 
-    return res.json(drinks);
+    // Return the drinks wrapped in an object
+    return res.json(responseData);
   } catch (error) {
     console.error(error);
     res.status(500).send("Error fetching cocktail data");

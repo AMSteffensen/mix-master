@@ -4,10 +4,9 @@ import CocktailList from "../components/CocktailList";
 import SearchForm from "../components/SearchForm";
 import { useQuery } from "@tanstack/react-query";
 
-const cocktailSearchUrl =
-  "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=";
-const popularCocktailsUrl =
-  "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita";
+// Access URLs from environment variables
+const cocktailSearchUrl = import.meta.env.VITE_COCKTAIL_SEARCH_URL;
+const landingCocktailsUrl = import.meta.env.VITE_COCKTAIL_POPULAR_URL;
 
 const searchCocktailsQuery = (searchTerm) => {
   return {
@@ -15,7 +14,7 @@ const searchCocktailsQuery = (searchTerm) => {
     queryFn: async () => {
       const url = searchTerm
         ? `${cocktailSearchUrl}${searchTerm}`
-        : popularCocktailsUrl;
+        : landingCocktailsUrl;
       const response = await axios.get(url);
       return response.data.drinks;
     },
